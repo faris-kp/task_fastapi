@@ -1,5 +1,5 @@
 from fastapi import FastAPI,HTTPException,Depends,status,UploadFile
-from pydantic import BaseModel,EmailStr
+from pydantic import BaseModel,EmailStr,validator
 from typing  import List,Annotated,Union
 import models
 from database import engine,SessionLocal
@@ -25,6 +25,19 @@ class CreateUserRequset(BaseModel):
     email: EmailStr
     password: str
     phone: str
+    
+class getresponce(BaseModel):
+    first_name: str
+    last_name: str
+    username : str
+    email: EmailStr
+    phone: str
+    
+    @validator('phone')
+    def validate_phone(cls, phone):
+        if len(phone) != 10 or not phone.isdigit():
+            raise ValueError("Invalid phone number. Please enter a 10-digit numeric phone number.")
+        return phone
 
 
 
@@ -32,8 +45,9 @@ class ProfilePictureRequset(BaseModel):
     profile_picture: UploadFile
     user_id: int
     
+
     
-class UserResponce(CreateUserRequset):
+class UserResponce(getresponce):
     profile_picture_path: str 
     
      
@@ -98,6 +112,7 @@ async def get_user(user_id:int,db: db_dependency):
 @app.post("/upload-profile-picture/")
 async def upload_profile_picture(user_id: int,profile_picture: UploadFile,db: db_dependency):
     db_user = db.query(Users).filter(Users.id == user_id).first()
+    
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
         
