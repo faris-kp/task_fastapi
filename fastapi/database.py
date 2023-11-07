@@ -5,7 +5,6 @@ from sqlalchemy.ext.declarative import declarative_base
 
 URL_DATABASE = 'postgresql://postgres:abcd%401234@localhost:5433/task_user_creation'
 
-
 engine = create_engine(URL_DATABASE)
 
 SessionLocal = sessionmaker(autocommit = False,autoflush=False,bind=engine)
