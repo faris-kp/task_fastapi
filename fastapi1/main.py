@@ -1,31 +1,29 @@
-from fastapi import FastAPI,HTTPException,Depends,status,UploadFile,Form
+# Import necessary modules
+from fastapi import FastAPI, HTTPException, Form, UploadFile, Depends, status
 from pymongo import MongoClient
-import models
-from database import engine,SessionLocal
+from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 from models import Users
+import models
 from passlib.context import CryptContext
 from typing import Annotated
 from pydantic import EmailStr
 
-
+# Create a FastAPI instance
 app = FastAPI()
 
+# Create database tables based on the models
 models.Base.metadata.create_all(bind=engine)
 
-
-
-
+# Connect to MongoDB and set up the database and collection
 mongo_client = MongoClient("mongodb://localhost:27017/")
 mongo_db = mongo_client["sample"]
 mongo_collection = mongo_db["user_profile"]
 
+# Create a bcrypt context for hashing passwords
+bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
-SECRET_KEY = "eyJhbGciOIsInR5cCIiwiI6IkpXVCJ9eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9TJVA95OrM7E2cBab30RMHrHD"
-ALGORITHM = 'HS256'
-
-bcrypt_context = CryptContext(schemes=['bcrypt'],deprecated = 'auto')
-
+# Function to get a database session using Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -33,9 +31,11 @@ def get_db():
     finally:
         db.close()
 
-db_dependency = Annotated[Session,Depends(get_db)]
-    
-@app.post("/register_user/",tags=['user_registration'])
+# Annotated dependency for the database session
+db_dependency = Annotated[Session, Depends(get_db)]
+
+# Route to register a new user
+@app.post("/register_user/", tags=['user_registration'])
 async def register_user(db: db_dependency,
                         profile_pic: UploadFile,
                         full_name: str = Form(...),
@@ -50,9 +50,7 @@ async def register_user(db: db_dependency,
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-
     # Insert the user data into PostgreSQL
-    print("enterd")
     new_user = Users(
         fullname=full_name,
         email=email,
@@ -63,37 +61,19 @@ async def register_user(db: db_dependency,
     db.commit()
     db.refresh(new_user)
     
+    # Store the user's image in MongoDB as bytes
     image_data = await profile_pic.read()
-# Store the user's image in MongoDB as bytes
     user_image_id = mongo_collection.insert_one({
-    "user_id": new_user.id,
-    "image": image_data
-      }).inserted_id
+        "user_id": new_user.id,
+        "image": image_data
+    }).inserted_id
 
-    # Store the user's image in MongoDB and associate it with the user's ID
-    
-    print("id",new_user.id)
-
-    print("id cheking",user_image_id)
-    
     return {
-        "user":new_user,
-        "profile_pic":str(user_image_id)
+        "user": new_user,
+        "profile_pic": str(user_image_id)
     }
-   
-    # return { 
-    #     "id": new_user.id,
-    #     "fullname": new_user.fullname,
-    #     "email": new_user.email,
-    #     "phone": new_user.Phone,
-    #     "password":new_user.password,
-    #     "profile_picture_path": str(user_image_id)
-    # }
-    
 
-
-
-
+# Route to get user details by user ID
 @app.get("/get_user_details/{user_id}", tags=['user_details'])
 async def get_user_details(user_id: int, db: db_dependency):
     user = db.query(Users).filter(Users.id == user_id).first()
@@ -113,14 +93,3 @@ async def get_user_details(user_id: int, db: db_dependency):
         "phone": user.Phone,
         "profile_picture_id": profile_pic_id
     }
-
-    
-
-
-
-    
-    
-    
-    
-
-
